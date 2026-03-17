@@ -1,40 +1,69 @@
-abstract class Room {
+import java.util.*;
 
-    protected int numberOfBeds;
-    protected int squareFeet;
-    protected double pricePerNight;
 
-    public Room(int numberOfBeds, int squareFeet, double pricePerNight) {
-        this.numberOfBeds = numberOfBeds;
-        this.squareFeet = squareFeet;
-        this.pricePerNight = pricePerNight;
+class Reservation {
+    private String guestName;
+    private String roomType;
+
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
     }
 
-    public void displayRoomDetails() {
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+    public String getGuestName() {
+        return guestName;
     }
-}
 
-class SingleRoom extends Room {
-
-    public SingleRoom() {
-        super(1, 250, 1500.0);
+    public String getRoomType() {
+        return roomType;
     }
 }
 
-class DoubleRoom extends Room {
+class RoomInventory {
+    private Map<String, Integer> roomAvailability;
 
-    public DoubleRoom() {
-        super(2, 400, 2500.0);
+    public RoomInventory() {
+        roomAvailability = new HashMap<>();
+        roomAvailability.put("Single", 1);
+        roomAvailability.put("Double", 1);
+    }
+    public synchronized boolean allocateRoom(String roomType) {
+
+        int available = roomAvailability.getOrDefault(roomType, 0);
+
+        if (available <= 0) {
+            return false;
+        }
+
+        roomAvailability.put(roomType, available - 1);
+        return true;
     }
 }
 
-class SuiteRoom extends Room {
+class BookingTask extends Thread {
 
-    public SuiteRoom() {
-        super(3, 600, 4500.0);
+    private Reservation reservation;
+    private RoomInventory inventory;
+
+    public BookingTask(Reservation reservation, RoomInventory inventory) {
+        this.reservation = reservation;
+        this.inventory = inventory;
+    }
+
+    @Override
+    public void run() {
+
+        boolean success = inventory.allocateRoom(reservation.getRoomType());
+
+        if (success) {
+            System.out.println("Booking SUCCESS for "
+                    + reservation.getGuestName()
+                    + " (" + reservation.getRoomType() + ")");
+        } else {
+            System.out.println("Booking FAILED for "
+                    + reservation.getGuestName()
+                    + " (" + reservation.getRoomType() + ")");
+        }
     }
 }
 
@@ -42,26 +71,18 @@ public class BOOK_MY_STAY_APP {
 
     public static void main(String[] args) {
 
-        SingleRoom singleRoom = new SingleRoom();
-        DoubleRoom doubleRoom = new DoubleRoom();
-        SuiteRoom suiteRoom = new SuiteRoom();
+        System.out.println("Concurrent Booking Simulation");
 
-        int singleRoomAvailable = 5;
-        int doubleRoomAvailable = 3;
-        int suiteRoomAvailable = 2;
+        RoomInventory inventory = new RoomInventory();
 
-        System.out.println("Hotel Room Initialization\n");
 
-        System.out.println("Single Room:");
-        singleRoom.displayRoomDetails();
-        System.out.println("Available: " + singleRoomAvailable + "\n");
+        Reservation r1 = new Reservation("Abhi", "Single");
+        Reservation r2 = new Reservation("Subha", "Single");
 
-        System.out.println("Double Room:");
-        doubleRoom.displayRoomDetails();
-        System.out.println("Available: " + doubleRoomAvailable + "\n");
+        BookingTask t1 = new BookingTask(r1, inventory);
+        BookingTask t2 = new BookingTask(r2, inventory);
 
-        System.out.println("Suite Room:");
-        suiteRoom.displayRoomDetails();
-        System.out.println("Available: " + suiteRoomAvailable);
+        t1.start();
+        t2.start();
     }
 }
