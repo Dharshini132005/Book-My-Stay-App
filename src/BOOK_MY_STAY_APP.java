@@ -1,40 +1,80 @@
-abstract class Room {
+import java.util.*;
 
-    protected int numberOfBeds;
-    protected int squareFeet;
-    protected double pricePerNight;
 
-    public Room(int numberOfBeds, int squareFeet, double pricePerNight) {
-        this.numberOfBeds = numberOfBeds;
-        this.squareFeet = squareFeet;
-        this.pricePerNight = pricePerNight;
-    }
-
-    public void displayRoomDetails() {
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+class InvalidBookingException extends Exception {
+    public InvalidBookingException(String message) {
+        super(message);
     }
 }
 
-class SingleRoom extends Room {
 
-    public SingleRoom() {
-        super(1, 250, 1500.0);
+class Reservation {
+    private String guestName;
+    private String roomType;
+
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public String getRoomType() {
+        return roomType;
     }
 }
 
-class DoubleRoom extends Room {
 
-    public DoubleRoom() {
-        super(2, 400, 2500.0);
+class RoomInventory {
+    private Map<String, Integer> roomAvailability;
+
+    public RoomInventory() {
+        roomAvailability = new HashMap<>();
+        roomAvailability.put("Single", 1);
+        roomAvailability.put("Double", 1);
+        roomAvailability.put("Suite", 1);
+    }
+
+    public Map<String, Integer> getRoomAvailability() {
+        return roomAvailability;
+    }
+
+    public void updateAvailability(String roomType, int count) {
+        roomAvailability.put(roomType, count);
     }
 }
 
-class SuiteRoom extends Room {
 
-    public SuiteRoom() {
-        super(3, 600, 4500.0);
+class RoomAllocationService {
+
+    public void allocateRoom(Reservation reservation, RoomInventory inventory)
+            throws InvalidBookingException {
+
+        String type = reservation.getRoomType();
+
+
+        if (!inventory.getRoomAvailability().containsKey(type)) {
+            throw new InvalidBookingException("Invalid room type: " + type);
+        }
+
+        int available = inventory.getRoomAvailability().get(type);
+
+
+        if (available <= 0) {
+            throw new InvalidBookingException("No rooms available for: " + type);
+        }
+
+
+        String roomId = type + "-" + available;
+
+
+        inventory.updateAvailability(type, available - 1);
+
+        System.out.println("Booking confirmed for Guest: "
+                + reservation.getGuestName()
+                + ", Room ID: " + roomId);
     }
 }
 
@@ -42,26 +82,22 @@ public class BOOK_MY_STAY_APP {
 
     public static void main(String[] args) {
 
-        SingleRoom singleRoom = new SingleRoom();
-        DoubleRoom doubleRoom = new DoubleRoom();
-        SuiteRoom suiteRoom = new SuiteRoom();
+        System.out.println("Booking with Validation");
 
-        int singleRoomAvailable = 5;
-        int doubleRoomAvailable = 3;
-        int suiteRoomAvailable = 2;
+        RoomInventory inventory = new RoomInventory();
+        RoomAllocationService service = new RoomAllocationService();
 
-        System.out.println("Hotel Room Initialization\n");
 
-        System.out.println("Single Room:");
-        singleRoom.displayRoomDetails();
-        System.out.println("Available: " + singleRoomAvailable + "\n");
+        Reservation r1 = new Reservation("Abhi", "Single");
+        Reservation r2 = new Reservation("John", "Luxury"); // ❌ invalid
 
-        System.out.println("Double Room:");
-        doubleRoom.displayRoomDetails();
-        System.out.println("Available: " + doubleRoomAvailable + "\n");
+        try {
+            service.allocateRoom(r1, inventory);
+            service.allocateRoom(r2, inventory); // will throw error
+        } catch (InvalidBookingException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
 
-        System.out.println("Suite Room:");
-        suiteRoom.displayRoomDetails();
-        System.out.println("Available: " + suiteRoomAvailable);
+        System.out.println("System continues safely...");
     }
 }
