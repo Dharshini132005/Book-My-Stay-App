@@ -1,13 +1,4 @@
 import java.util.*;
-
-
-class InvalidBookingException extends Exception {
-    public InvalidBookingException(String message) {
-        super(message);
-    }
-}
-
-
 class Reservation {
     private String guestName;
     private String roomType;
@@ -26,7 +17,6 @@ class Reservation {
     }
 }
 
-
 class RoomInventory {
     private Map<String, Integer> roomAvailability;
 
@@ -41,63 +31,110 @@ class RoomInventory {
         return roomAvailability;
     }
 
-    public void updateAvailability(String roomType, int count) {
-        roomAvailability.put(roomType, count);
+    public void increaseAvailability(String roomType) {
+        roomAvailability.put(roomType,
+                roomAvailability.getOrDefault(roomType, 0) + 1);
+    }
+
+    public void decreaseAvailability(String roomType) {
+        roomAvailability.put(roomType,
+                roomAvailability.getOrDefault(roomType, 0) - 1);
     }
 }
 
 
 class RoomAllocationService {
 
-    public void allocateRoom(Reservation reservation, RoomInventory inventory)
-            throws InvalidBookingException {
+    private Map<Reservation, String> allocatedRooms;
+
+    public RoomAllocationService() {
+        allocatedRooms = new HashMap<>();
+    }
+
+    public void allocateRoom(Reservation reservation, RoomInventory inventory) {
 
         String type = reservation.getRoomType();
-
-
-        if (!inventory.getRoomAvailability().containsKey(type)) {
-            throw new InvalidBookingException("Invalid room type: " + type);
-        }
-
-        int available = inventory.getRoomAvailability().get(type);
-
+        int available = inventory.getRoomAvailability().getOrDefault(type, 0);
 
         if (available <= 0) {
-            throw new InvalidBookingException("No rooms available for: " + type);
+            System.out.println("No rooms available for " + type);
+            return;
         }
-
 
         String roomId = type + "-" + available;
 
-
-        inventory.updateAvailability(type, available - 1);
+        allocatedRooms.put(reservation, roomId);
+        inventory.decreaseAvailability(type);
 
         System.out.println("Booking confirmed for Guest: "
                 + reservation.getGuestName()
                 + ", Room ID: " + roomId);
     }
+
+    public String getAllocatedRoom(Reservation reservation) {
+        return allocatedRooms.get(reservation);
+    }
+
+    public void removeAllocation(Reservation reservation) {
+        allocatedRooms.remove(reservation);
+    }
 }
+
+
+class CancellationService {
+
+    private Stack<String> rollbackStack;
+
+    public CancellationService() {
+        rollbackStack = new Stack<>();
+    }
+
+    public void cancelBooking(Reservation reservation,
+                              RoomAllocationService allocator,
+                              RoomInventory inventory) {
+
+        String roomId = allocator.getAllocatedRoom(reservation);
+
+        // ❗ Validation
+        if (roomId == null) {
+            System.out.println("Invalid cancellation: No booking found");
+            return;
+        }
+
+        rollbackStack.push(roomId);
+
+
+        String roomType = reservation.getRoomType();
+
+        inventory.increaseAvailability(roomType);
+
+        allocator.removeAllocation(reservation);
+
+        System.out.println("Booking cancelled for Guest: "
+                + reservation.getGuestName()
+                + ", Released Room ID: " + roomId);
+    }
+}
+
 
 public class BOOK_MY_STAY_APP {
 
     public static void main(String[] args) {
 
-        System.out.println("Booking with Validation");
+        System.out.println("Booking Cancellation & Rollback");
 
         RoomInventory inventory = new RoomInventory();
-        RoomAllocationService service = new RoomAllocationService();
+        RoomAllocationService allocator = new RoomAllocationService();
+        CancellationService canceller = new CancellationService();
 
 
         Reservation r1 = new Reservation("Abhi", "Single");
-        Reservation r2 = new Reservation("John", "Luxury"); // ❌ invalid
+        Reservation r2 = new Reservation("Subha", "Double");
 
-        try {
-            service.allocateRoom(r1, inventory);
-            service.allocateRoom(r2, inventory); // will throw error
-        } catch (InvalidBookingException e) {
-            System.out.println("Error: " + e.getMessage());
-        }
+        allocator.allocateRoom(r1, inventory);
+        allocator.allocateRoom(r2, inventory);
 
-        System.out.println("System continues safely...");
+
+        canceller.cancelBooking(r2, allocator, inventory);
     }
 }
