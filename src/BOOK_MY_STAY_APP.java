@@ -1,7 +1,9 @@
+import java.io.*;
 import java.util.*;
 
+class Reservation implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-class Reservation {
     private String guestName;
     private String roomType;
 
@@ -19,50 +21,75 @@ class Reservation {
     }
 }
 
-class RoomInventory {
+class RoomInventory implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private Map<String, Integer> roomAvailability;
 
     public RoomInventory() {
         roomAvailability = new HashMap<>();
-        roomAvailability.put("Single", 1);
+        roomAvailability.put("Single", 2);
         roomAvailability.put("Double", 1);
     }
-    public synchronized boolean allocateRoom(String roomType) {
 
-        int available = roomAvailability.getOrDefault(roomType, 0);
-
-        if (available <= 0) {
-            return false;
-        }
-
-        roomAvailability.put(roomType, available - 1);
-        return true;
+    public Map<String, Integer> getRoomAvailability() {
+        return roomAvailability;
     }
 }
 
-class BookingTask extends Thread {
+class BookingHistory implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    private Reservation reservation;
-    private RoomInventory inventory;
+    private List<Reservation> reservations;
 
-    public BookingTask(Reservation reservation, RoomInventory inventory) {
-        this.reservation = reservation;
-        this.inventory = inventory;
+    public BookingHistory() {
+        reservations = new ArrayList<>();
     }
 
-    @Override
-    public void run() {
+    public void addReservation(Reservation r) {
+        reservations.add(r);
+    }
 
-        boolean success = inventory.allocateRoom(reservation.getRoomType());
+    public List<Reservation> getReservations() {
+        return reservations;
+    }
+}
 
-        if (success) {
-            System.out.println("Booking SUCCESS for "
-                    + reservation.getGuestName()
-                    + " (" + reservation.getRoomType() + ")");
-        } else {
-            System.out.println("Booking FAILED for "
-                    + reservation.getGuestName()
-                    + " (" + reservation.getRoomType() + ")");
+class PersistenceService {
+
+    private static final String FILE_NAME = "hotel_data.ser";
+
+    // Save data
+    public void save(BookingHistory history, RoomInventory inventory) {
+        try (ObjectOutputStream oos =
+                     new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
+
+            oos.writeObject(history);
+            oos.writeObject(inventory);
+
+            System.out.println("Data saved successfully!");
+
+        } catch (IOException e) {
+            System.out.println("Error saving data: " + e.getMessage());
+        }
+    }
+
+
+    public Object[] load() {
+
+        try (ObjectInputStream ois =
+                     new ObjectInputStream(new FileInputStream(FILE_NAME))) {
+
+            BookingHistory history = (BookingHistory) ois.readObject();
+            RoomInventory inventory = (RoomInventory) ois.readObject();
+
+            System.out.println("Data loaded successfully!");
+
+            return new Object[]{history, inventory};
+
+        } catch (Exception e) {
+            System.out.println("No previous data found. Starting fresh...");
+            return null;
         }
     }
 }
@@ -71,18 +98,32 @@ public class BOOK_MY_STAY_APP {
 
     public static void main(String[] args) {
 
-        System.out.println("Concurrent Booking Simulation");
+        System.out.println("Data Persistence & Recovery");
 
-        RoomInventory inventory = new RoomInventory();
+        PersistenceService service = new PersistenceService();
 
+        BookingHistory history;
+        RoomInventory inventory;
+
+        Object[] data = service.load();
+
+        if (data != null) {
+            history = (BookingHistory) data[0];
+            inventory = (RoomInventory) data[1];
+        } else {
+            history = new BookingHistory();
+            inventory = new RoomInventory();
+        }
 
         Reservation r1 = new Reservation("Abhi", "Single");
-        Reservation r2 = new Reservation("Subha", "Single");
+        history.addReservation(r1);
 
-        BookingTask t1 = new BookingTask(r1, inventory);
-        BookingTask t2 = new BookingTask(r2, inventory);
+        System.out.println("\nCurrent Bookings:");
+        for (Reservation r : history.getReservations()) {
+            System.out.println(r.getGuestName() + " - " + r.getRoomType());
+        }
 
-        t1.start();
-        t2.start();
+
+        service.save(history, inventory);
     }
 }
