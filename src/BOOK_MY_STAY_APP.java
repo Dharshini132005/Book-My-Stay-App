@@ -1,5 +1,13 @@
 import java.util.*;
 
+
+class InvalidBookingException extends Exception {
+    public InvalidBookingException(String message) {
+        super(message);
+    }
+}
+
+
 class Reservation {
     private String guestName;
     private String roomType;
@@ -19,52 +27,77 @@ class Reservation {
 }
 
 
-class BookingHistory {
+class RoomInventory {
+    private Map<String, Integer> roomAvailability;
 
-    private List<Reservation> confirmedReservations;
-
-    public BookingHistory() {
-        confirmedReservations = new ArrayList<>();
+    public RoomInventory() {
+        roomAvailability = new HashMap<>();
+        roomAvailability.put("Single", 1);
+        roomAvailability.put("Double", 1);
+        roomAvailability.put("Suite", 1);
     }
 
-    public void addReservation(Reservation reservation) {
-        confirmedReservations.add(reservation);
+    public Map<String, Integer> getRoomAvailability() {
+        return roomAvailability;
     }
 
-    public List<Reservation> getConfirmedReservations() {
-        return confirmedReservations;
+    public void updateAvailability(String roomType, int count) {
+        roomAvailability.put(roomType, count);
     }
 }
 
 
-class BookingReportService {
+class RoomAllocationService {
 
-    public void generateReport(BookingHistory history) {
+    public void allocateRoom(Reservation reservation, RoomInventory inventory)
+            throws InvalidBookingException {
 
-        System.out.println("\nBooking History Report");
+        String type = reservation.getRoomType();
 
-        for (Reservation r : history.getConfirmedReservations()) {
-            System.out.println("Guest: " + r.getGuestName()
-                    + ", Room Type: " + r.getRoomType());
+
+        if (!inventory.getRoomAvailability().containsKey(type)) {
+            throw new InvalidBookingException("Invalid room type: " + type);
         }
+
+        int available = inventory.getRoomAvailability().get(type);
+
+
+        if (available <= 0) {
+            throw new InvalidBookingException("No rooms available for: " + type);
+        }
+
+
+        String roomId = type + "-" + available;
+
+
+        inventory.updateAvailability(type, available - 1);
+
+        System.out.println("Booking confirmed for Guest: "
+                + reservation.getGuestName()
+                + ", Room ID: " + roomId);
     }
 }
-
 
 public class BOOK_MY_STAY_APP {
 
     public static void main(String[] args) {
 
-        System.out.println("Booking History and Reporting");
+        System.out.println("Booking with Validation");
 
-        BookingHistory history = new BookingHistory();
-        BookingReportService reportService = new BookingReportService();
+        RoomInventory inventory = new RoomInventory();
+        RoomAllocationService service = new RoomAllocationService();
 
 
-        history.addReservation(new Reservation("Abhi", "Single"));
-        history.addReservation(new Reservation("Subha", "Double"));
-        history.addReservation(new Reservation("Vanmathi", "Suite"));
+        Reservation r1 = new Reservation("Abhi", "Single");
+        Reservation r2 = new Reservation("John", "Luxury"); // ❌ invalid
 
-        reportService.generateReport(history);
+        try {
+            service.allocateRoom(r1, inventory);
+            service.allocateRoom(r2, inventory); // will throw error
+        } catch (InvalidBookingException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+
+        System.out.println("System continues safely...");
     }
 }
