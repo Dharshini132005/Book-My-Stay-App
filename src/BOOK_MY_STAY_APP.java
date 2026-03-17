@@ -1,40 +1,96 @@
-abstract class Room {
+import java.io.*;
+import java.util.*;
 
-    protected int numberOfBeds;
-    protected int squareFeet;
-    protected double pricePerNight;
+class Reservation implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    public Room(int numberOfBeds, int squareFeet, double pricePerNight) {
-        this.numberOfBeds = numberOfBeds;
-        this.squareFeet = squareFeet;
-        this.pricePerNight = pricePerNight;
+    private String guestName;
+    private String roomType;
+
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
     }
 
-    public void displayRoomDetails() {
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+    public String getGuestName() {
+        return guestName;
     }
-}
 
-class SingleRoom extends Room {
-
-    public SingleRoom() {
-        super(1, 250, 1500.0);
+    public String getRoomType() {
+        return roomType;
     }
 }
 
-class DoubleRoom extends Room {
+class RoomInventory implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    public DoubleRoom() {
-        super(2, 400, 2500.0);
+    private Map<String, Integer> roomAvailability;
+
+    public RoomInventory() {
+        roomAvailability = new HashMap<>();
+        roomAvailability.put("Single", 2);
+        roomAvailability.put("Double", 1);
+    }
+
+    public Map<String, Integer> getRoomAvailability() {
+        return roomAvailability;
     }
 }
 
-class SuiteRoom extends Room {
+class BookingHistory implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    public SuiteRoom() {
-        super(3, 600, 4500.0);
+    private List<Reservation> reservations;
+
+    public BookingHistory() {
+        reservations = new ArrayList<>();
+    }
+
+    public void addReservation(Reservation r) {
+        reservations.add(r);
+    }
+
+    public List<Reservation> getReservations() {
+        return reservations;
+    }
+}
+
+class PersistenceService {
+
+    private static final String FILE_NAME = "hotel_data.ser";
+
+    // Save data
+    public void save(BookingHistory history, RoomInventory inventory) {
+        try (ObjectOutputStream oos =
+                     new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
+
+            oos.writeObject(history);
+            oos.writeObject(inventory);
+
+            System.out.println("Data saved successfully!");
+
+        } catch (IOException e) {
+            System.out.println("Error saving data: " + e.getMessage());
+        }
+    }
+
+
+    public Object[] load() {
+
+        try (ObjectInputStream ois =
+                     new ObjectInputStream(new FileInputStream(FILE_NAME))) {
+
+            BookingHistory history = (BookingHistory) ois.readObject();
+            RoomInventory inventory = (RoomInventory) ois.readObject();
+
+            System.out.println("Data loaded successfully!");
+
+            return new Object[]{history, inventory};
+
+        } catch (Exception e) {
+            System.out.println("No previous data found. Starting fresh...");
+            return null;
+        }
     }
 }
 
@@ -42,26 +98,32 @@ public class BOOK_MY_STAY_APP {
 
     public static void main(String[] args) {
 
-        SingleRoom singleRoom = new SingleRoom();
-        DoubleRoom doubleRoom = new DoubleRoom();
-        SuiteRoom suiteRoom = new SuiteRoom();
+        System.out.println("Data Persistence & Recovery");
 
-        int singleRoomAvailable = 5;
-        int doubleRoomAvailable = 3;
-        int suiteRoomAvailable = 2;
+        PersistenceService service = new PersistenceService();
 
-        System.out.println("Hotel Room Initialization\n");
+        BookingHistory history;
+        RoomInventory inventory;
 
-        System.out.println("Single Room:");
-        singleRoom.displayRoomDetails();
-        System.out.println("Available: " + singleRoomAvailable + "\n");
+        Object[] data = service.load();
 
-        System.out.println("Double Room:");
-        doubleRoom.displayRoomDetails();
-        System.out.println("Available: " + doubleRoomAvailable + "\n");
+        if (data != null) {
+            history = (BookingHistory) data[0];
+            inventory = (RoomInventory) data[1];
+        } else {
+            history = new BookingHistory();
+            inventory = new RoomInventory();
+        }
 
-        System.out.println("Suite Room:");
-        suiteRoom.displayRoomDetails();
-        System.out.println("Available: " + suiteRoomAvailable);
+        Reservation r1 = new Reservation("Abhi", "Single");
+        history.addReservation(r1);
+
+        System.out.println("\nCurrent Bookings:");
+        for (Reservation r : history.getReservations()) {
+            System.out.println(r.getGuestName() + " - " + r.getRoomType());
+        }
+
+
+        service.save(history, inventory);
     }
 }
